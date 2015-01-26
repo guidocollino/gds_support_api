@@ -94,5 +94,4 @@ Rails.application.configure do
       password:             'aero1234',
       authentication:       'plain',
       enable_starttls_auto: true  }
-  end
 end
