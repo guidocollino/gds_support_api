@@ -36,4 +36,17 @@ module GdsWsSupport
 		response["status"] = status
 		return response
 	end
+
+	#devuelve una hash con la cantidad de pax, el printer para mostrar los datos y un status
+	def self.send_itinerary(pnr_code, gds, emails)
+		#response = Hash.new
+		response = "ERROR"
+		if gds == GdsWsSupport::SABRE then
+		    response = SabreWsSupport.send_itinerary(pnr_code,emails)
+	    else
+	    	response = "invalid gds"
+		end
+		#response["status"] = status
+		return response
+	end
 end

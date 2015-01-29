@@ -8,8 +8,9 @@ Rails.application.routes.draw do
   # root 'welcome#index'
   namespace :api do
     namespace :v1 do
-      get 'pnr/:code/gds/:name' => 'pnr_data#get_pnr_info_from_gds'
+      get 'pnr/:code/gds/:name' => 'pnr_data#get_pnr_info'
       post 'pnr/write_remarks' => 'pnr_data#write_remarks'
+      post 'pnr/send_itinerary' => 'pnr_data#send_itinerary'
     end
   end
 

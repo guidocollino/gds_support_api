@@ -4,6 +4,64 @@ DataMapper.setup(:default, 'sqlite://' + Rails.root.to_s + "/db/sabre.db")
 
 module SabreWsSupport
 
+	###############SEND ITINERARY########################
+
+	def self.set_mails(emails)
+		elements = emails.collect { |e| "" }
+		body = { 'ns:CustomerInfo' => { 'ns:Email' => elements, :attributes! => { 'ns:Email' => {	"Address" => emails } } } }
+
+		response = SabreWebServices.call("TravelItineraryAddInfoRQ", body)
+
+		if response["error"].nil? then
+			res_body = response[:envelope][:body][:travel_itinerary_add_info_rs]
+			if res_body[:application_results][:@status] == "Complete" then
+				return "OK"
+			end
+		end
+
+		return "ERROR"
+	end
+
+	def self.end_with_itinerary
+		body = { 'ns:EndTransaction' =>	
+			{ 'ns:Email' => 
+				{ 'ns:Itinerary' => 
+					{ 'ns:PDF' =>  "" , :attributes! => { 'ns:PDF' => { "Ind" => "true" } } } , 
+					:attributes! => { 'ns:Itinerary' => { "Ind" => "true" } } }, 
+				:attributes! => { 'ns:Email' => { "Ind" => "true" } } }, 'ns:Source' => "", 
+			:attributes! => { 
+				'ns:EndTransaction' => { "Ind" => "true" }, 
+				'ns:Source' => { "ReceivedFrom" => "Aero" } } 
+		} 
+
+		response = SabreWebServices.call("EndTransactionRQ", body)
+
+		if response["error"].nil? then
+			res_body = response[:envelope][:body][:end_transaction_rs]
+			if res_body[:application_results][:@status] == "Complete" then
+				return "OK"
+			end
+		end
+
+		return "ERROR"
+
+	end
+
+	def self.send_itinerary(pnr_code,emails)
+		response = "ERROR"
+		pnr_data = get_pnr_info(pnr_code)
+
+		response = set_mails(emails) unless pnr_data.nil?
+
+		response = end_with_itinerary unless response == "ERROR"
+
+		return response
+
+	end
+
+
+	###############GET PNR DATA########################
+
 	def self.get_pnr_info(pnr_code)
 		body = { 'ns:MessagingDetails' => { 
     		 	'ns:Transaction' => "",
