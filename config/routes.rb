@@ -56,5 +56,6 @@ Rails.application.routes.draw do
   #   resources :posts, concerns: :toggleable
   #   resources :photos, concerns: :toggleable
 
- 
+  mount MongodbLogger::Server.new, :at => "/mongodb"
+  mount MongodbLogger::Assets.instance, :at => "/mongodb/assets", :as => :mongodb_assets # assets
 end

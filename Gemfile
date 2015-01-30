@@ -1,7 +1,8 @@
 source 'https://rubygems.org'
 
+gem 'coffee-script'
 
-gem 'rails', '4.2.0'
+gem 'rails', '4.1.2'
 
 gem 'rails-api'
 
@@ -22,3 +23,8 @@ gem "unicorn-rails"
 
 # To use debugger
 # gem 'ruby-debug19', :require => 'ruby-debug'
+
+#Log en mongo
+gem "mongodb_logger"
+gem "mongo"
+gem "bson_ext" # for MRI
