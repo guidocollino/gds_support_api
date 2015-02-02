@@ -4,3 +4,10 @@ development:
   host: 127.0.0.1
   port: 27017
   replica_set: true
+
+production:
+  database: gds_api_log
+  capsize: <%= 500.megabytes %>
+  host: 127.0.0.1
+  port: 27017
+  replica_set: true
