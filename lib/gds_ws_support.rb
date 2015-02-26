@@ -43,6 +43,8 @@ module GdsWsSupport
 		response = "ERROR"
 		if gds == GdsWsSupport::SABRE then
 		    response = SabreWsSupport.send_itinerary(pnr_code,emails)
+		elsif GdsWsSupport::AMADEUS
+			response = AmadeusWsSupport.send_itinerary(pnr_code,emails)
 	    else
 	    	response = "invalid gds"
 		end

@@ -12,8 +12,10 @@ module AptekTktWebServices
   module Services
     SABRE_URL_GET_PNR = "http://alpback.apteknet.com/SAB_GetPnr.php?"
     SABRE_URL_POST_REMARKS = "http://alpback.apteknet.com/SAB_Send2Pnr.php" 
+
     AMADEUS_URL_GET_PNR = "http://alpback.apteknet.com/AMA_GetPnr.php?"
     AMADEUS_URL_POST_REMARKS = "http://alpback.apteknet.com/AMA_Send2Pnr.php"
+    AMADEUS_URL_POST_ITINERARY = "http://alpback.apteknet.com/AMA_SendEtkt.php"
     
     def Services.get_pnr(pnr,gds)
       params = "pnr2get=#{pnr}"
@@ -42,6 +44,27 @@ module AptekTktWebServices
         {'pnr2get' => pnr, 
         'remarksagrabar' => remarks.join(",")}
       )
+
+      data = JSON.parse(response.body)
+      if response.code.to_i == 200 then
+        result = data["error_status"].to_s
+      end
+        
+      return result
+    end
+
+    #SOLO FUNCIONA CON AMADEUS
+    def Services.send_itinerary(pnr, email)
+      result = "HTTP ERROR"
+
+      uri = URI(AMADEUS_URL_POST_ITINERARY)
+        
+      response = Net::HTTP.post_form(uri, 
+        {'pnr2get' => pnr, 
+        'email2use' => email}
+      )
+      #probar el encoding, si viene ASCII hay que cambiar la cod de los archivos
+      #puts "Encoding: #{response.body.encoding}"
 
       data = JSON.parse(response.body)
       if response.code.to_i == 200 then

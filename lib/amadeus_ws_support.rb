@@ -1,6 +1,21 @@
 require "aptek_tkt_web_services"
 
 module AmadeusWsSupport
+	###############SEND ITINERARY########################
+
+	def self.send_itinerary(pnr_code,emails)
+		response = "ERROR"
+
+		for email in emails
+			response = AptekTktWebServices::Services.send_itinerary(pnr_code,email)
+		end
+
+		return response
+
+	end
+
+	###############GET PNR DATA########################
+
 
 	def self.get_pnr_info(pnr_code)
 		pnr_json = AptekTktWebServices::Services.get_pnr(pnr_code,"Amadeus")
