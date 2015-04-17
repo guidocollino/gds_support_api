@@ -254,6 +254,46 @@ module AmadeusWsSupport
 
 	end
 
+	#Wrapper que contiene los tickets
+	class TicketsWrapper
+		attr_accessor :tickets, :data
+
+		def initialize(pnr_data) 
+	      self.data = pnr_data
+	      self.tickets = get_tickets
+	    end
+
+	    def ticket_elements
+	    	elements = self.data["soapCOLONBody"]["PNR_Reply"]["dataElementsMaster"]["dataElementsIndiv"]
+	    	return elements.select { |e| e['elementManagementData']['segmentName'] == "FA" }
+	    end
+
+	    #devuelve el umero de ticket del elemento de accounting_info
+	    def ticket_number(text_element)
+           temp = text_element.split("/")
+		   temp2 = temp[0].split("-")
+		   temp2[1]
+	    end
+
+	    def create_ticket(number)
+	    	{number: number, void: false}
+	    end
+
+	    def get_tickets
+	    	response = []
+	    	te = ticket_elements
+	    	unless te.nil?
+	    		if te.is_a?(Array) then 
+	    			response = te.collect { |a| create_ticket(ticket_number(a["otherDataFreetext"]["longFreetext"]))}
+	    		else
+	    			response << create_ticket(ticket_number(te["otherDataFreetext"]["longFreetext"]))
+	    		end
+	    	end
+	    	return response
+	    end
+
+	end
+
 	#Wrapper a partir del elemento travel_itinerary
 	class PnrInfoWrapper
 		attr_accessor :data, :pnr_code
@@ -317,6 +357,11 @@ module AmadeusWsSupport
 	    		return passengers_data if pf['qualifier'] == "PT" && pf['number'] == "#{number}"
 		    end
 		    return nil 
+	    end
+
+	    def tickets
+	    	tw = TicketsWrapper.new(self.data)
+	    	tw.tickets
 	    end
 	end
 
@@ -435,8 +480,7 @@ module AmadeusWsSupport
 	    end
 
 	    def print_description
-	    	return  "<p>#{pnr_info.pnr_code}</p>" + print_passengers + print_routes + print_fares
-		    
+	    	return  "<p>#{pnr_info.pnr_code}</p>" + print_passengers + print_routes + print_fares + "<HR WIDTH='90%''>"
 	    end
 
 	    def print_fares

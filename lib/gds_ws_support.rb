@@ -18,6 +18,7 @@ module GdsWsSupport
 		    unless pnr_info.nil?
 	    		printer = SabreWsSupport::PnrHtmlPrinter.new(pnr_info) 
 	    		cant_pax = pnr_info.cant_pax
+	    		tickets = pnr_info.tickets
 	    		status = "OK"
 	    	end
 		elsif gds == GdsWsSupport::AMADEUS
@@ -25,6 +26,7 @@ module GdsWsSupport
 		   	unless pnr_info.nil?
 	    		printer = AmadeusWsSupport::PnrHtmlPrinter.new(pnr_info) 
 	    		cant_pax = pnr_info.cant_pax
+	    		tickets = pnr_info.tickets
 	    		status = "OK"
 	    	end
 	    else
@@ -33,6 +35,7 @@ module GdsWsSupport
 
 		response["cant_pax"] = cant_pax
 		response["printer"] = printer
+		response["tickets"] = tickets
 		response["status"] = status
 		return response
 	end

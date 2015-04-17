@@ -169,6 +169,73 @@ module SabreWsSupport
 	    end
 	end
 
+	#Wrapper que contiene los tickets
+	class TicketsWrapper
+		attr_accessor :tickets, :accounting, :tickets_void, :ticketing
+
+		def initialize(data) 
+	      self.accounting = data[:accounting_info]
+	      self.ticketing = data[:itinerary_info][:ticketing]
+	      self.tickets_void = get_tickets_void
+	      self.tickets = get_tickets
+	    end
+
+	    #devuelve el numero si es void, sino nil
+	    def ticket_void_number(ticketing_element)
+	    	text = ticketing_element[:@e_ticket_number]
+	    	unless text.nil?
+	    		if text.include?("*VOID*") then
+	    			temp = text.split("-")
+	    			number = temp[0].last(10)
+	    			return number
+	    		end
+	    	end
+	    	return nil
+	    end
+
+	    def get_tickets_void
+	    	response = []
+	    	tk = self.ticketing
+	    	unless tk.nil?
+	    		if tk.is_a?(Array) then 
+	    			tk.each { 
+	    				|t| 
+	    				number = ticket_void_number(t)
+	    				response << number unless number.nil?
+	    			}
+	    		else
+	    			number = ticket_void_number(tk)
+	    			response << number unless number.nil?
+	    		end
+	    	end
+	    	return response
+	    end
+
+	    #devuelve el umero de ticket del elemento de accounting_info
+	    def ticket_number(accounting_element)
+	    	accounting_element[:document_info][:document][:@number]
+	    end
+
+	    def create_ticket(number)
+	    	{number: number, void: self.tickets_void.include?(number)}
+	    end
+
+	    def get_tickets
+	    	response = []
+	    	ai = self.accounting
+	    	unless ai.nil?
+	    		if ai.is_a?(Array) then 
+	    			response = ai.collect { |a| create_ticket(ticket_number(a))}
+	    		else
+	    			response << create_ticket(ticket_number(ai))
+	    		end
+	    	end
+	    	return response
+	    end
+
+
+	end
+
 	#Wrapper a partir del elemento travel_itinerary
 	class PnrInfoWrapper
 		attr_accessor :data, :pnr_code
@@ -213,6 +280,11 @@ module SabreWsSupport
 
 	    def pq_inactive?(pq)
 	    	return pq[:misc_information][:signature_line][:@status] == "INACTIVE"
+	    end
+
+	    def tickets
+	    	tw = TicketsWrapper.new(self.data)
+	    	tw.tickets
 	    end
 
 	end
@@ -464,7 +536,8 @@ module SabreWsSupport
 	    			print_passengers + '</br>' + 
 	    			print_routes + '</br>' +
 	    			print_itinerary_ref + '</br>' + 
-	    			print_pq_data
+	    			print_pq_data + 
+	    			"<HR WIDTH='90%''>"
 		    
 	    end
 

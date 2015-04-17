@@ -9,6 +9,7 @@ Rails.application.routes.draw do
   namespace :api do
     namespace :v1 do
       get 'pnr/:code/gds/:name' => 'pnr_data#get_pnr_info'
+      get 'pnr_tickets/:code/gds/:name' => 'pnr_data#get_tickets_from_pnr'
       post 'pnr/write_remarks' => 'pnr_data#write_remarks'
       post 'pnr/send_itinerary' => 'pnr_data#send_itinerary'
     end

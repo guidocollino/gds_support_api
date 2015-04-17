@@ -68,4 +68,26 @@ class Api::V1::PnrDataController < ApplicationController
     end
   end
 
+  def get_tickets_from_pnr
+    begin
+      data_request = PnrDataRequest.new(pnr: params[:code], gds: params[:name])
+      if data_request.valid? then
+
+        response = GdsWsSupport.get_data(data_request.pnr, data_request.gds)
+        # description = response["printer"].print_description unless response["printer"].nil?
+        data = { 
+          "tickets" => response["tickets"],
+          "status" => response["status"]
+        }
+     
+        render json: data
+      else
+        render json: { status: "ERROR", error_msg: "An error occurred: bad parametrs : #{data_request.errors.full_messages}"}
+      end
+    rescue Exception => e
+      #notify_about_exception(e)
+      render json: { status: "ERROR", error_msg: "An error occurred: #{e}"}
+    end
+  end
+
 end
