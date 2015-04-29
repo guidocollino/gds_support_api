@@ -256,9 +256,10 @@ module AmadeusWsSupport
 
 	#Wrapper que contiene los tickets
 	class TicketsWrapper
-		attr_accessor :tickets, :data
+		attr_accessor :tickets, :data, :pnr_info
 
-		def initialize(pnr_data) 
+		def initialize(pnr_data, pnr_info) 
+		  self.pnr_info = pnr_info
 	      self.data = pnr_data
 	      self.tickets = get_tickets
 	    end
@@ -275,8 +276,49 @@ module AmadeusWsSupport
 		   temp2[1]
 	    end
 
-	    def create_ticket(number)
-	    	{number: number, void: false}
+	    #devuelve el umero de ticket del elemento de accounting_info
+	    def ticket_pax_name(element)
+	    	reference = element["referenceForDataElement"]["reference"]
+	    	pax_element = reference.select { |r| r['qualifier'] == "PT" }
+	    	unless pax_element.empty?
+			    number = pax_element[0]["number"]
+			    pax = pnr_info.search_passenger(number)
+			    pax_data = pax['passengerData']['travellerInformation']
+		    	"#{pax_data['traveller']['surname']} #{pax_data['passenger']['firstName']}"
+		    else
+		    	""
+		    end
+	    end
+
+	    #devuelve la tarifa base del ticket
+	    def ticket_base_fare(text_element)
+	    	response = ""
+	    	temp = text_element.split("/")
+	    	unless temp[2].nil?
+			    response = temp[2][3..(temp[2].size - 1)] if temp[2].include?("ARS")
+			end
+	    	return response
+	    end
+
+	     #devuelve el umero de ticket del elemento de accounting_info
+	    def ticket_airline(text_element)
+	    	response = ""
+	    	temp = text_element.split("/")
+	    	unless temp[1].nil?
+			    response = temp[1][2..(temp[1].size - 1)] if temp[1].include?("ET")
+			end
+	    	return response
+	    end
+
+	    def create_ticket(element)
+	    	number = ticket_number(element["otherDataFreetext"]["longFreetext"])
+	    	void = false
+	    	pax_name = ticket_pax_name(element)
+	    	base_fare = ticket_base_fare(element["otherDataFreetext"]["longFreetext"])
+	    	airline = ticket_airline(element["otherDataFreetext"]["longFreetext"])
+	    	{number: number, void: void, pax_name: pax_name, base_fare: base_fare, airline: airline}
+	    	#{number: number, void: false}
+	    	# {number: number, void: false, pax_name: "", base_fare: "", airline: ""}
 	    end
 
 	    def get_tickets
@@ -284,9 +326,9 @@ module AmadeusWsSupport
 	    	te = ticket_elements
 	    	unless te.nil?
 	    		if te.is_a?(Array) then 
-	    			response = te.collect { |a| create_ticket(ticket_number(a["otherDataFreetext"]["longFreetext"]))}
+	    			response = te.collect { |a| create_ticket(a)}
 	    		else
-	    			response << create_ticket(ticket_number(te["otherDataFreetext"]["longFreetext"]))
+	    			response << create_ticket(te)
 	    		end
 	    	end
 	    	return response
@@ -360,7 +402,7 @@ module AmadeusWsSupport
 	    end
 
 	    def tickets
-	    	tw = TicketsWrapper.new(self.data)
+	    	tw = TicketsWrapper.new(self.data, self)
 	    	tw.tickets
 	    end
 	end

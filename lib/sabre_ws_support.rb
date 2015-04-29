@@ -216,8 +216,28 @@ module SabreWsSupport
 	    	accounting_element[:document_info][:document][:@number]
 	    end
 
-	    def create_ticket(number)
-	    	{number: number, void: self.tickets_void.include?(number)}
+	    #devuelve el umero de ticket del elemento de accounting_info
+	    def ticket_pax_name(accounting_element)
+	    	accounting_element[:person_name]
+	    end
+
+	    #devuelve la tarifa base del ticket
+	    def ticket_base_fare(accounting_element)
+	    	accounting_element[:base_fare][:@amount]
+	    end
+
+	     #devuelve el umero de ticket del elemento de accounting_info
+	    def ticket_airline(accounting_element)
+	    	accounting_element[:airline][:@code]
+	    end
+
+	    def create_ticket(accounting_element)
+	    	number = ticket_number(accounting_element)
+	    	void = self.tickets_void.include?(number)
+	    	pax_name = ticket_pax_name(accounting_element)
+	    	base_fare = ticket_base_fare(accounting_element)
+	    	airline = ticket_airline(accounting_element)
+	    	{number: number, void: void, pax_name: pax_name, base_fare: base_fare, airline: airline}
 	    end
 
 	    def get_tickets
@@ -225,7 +245,7 @@ module SabreWsSupport
 	    	ai = self.accounting
 	    	unless ai.nil?
 	    		if ai.is_a?(Array) then 
-	    			response = ai.collect { |a| create_ticket(ticket_number(a))}
+	    			response = ai.collect { |a| create_ticket(a)}
 	    		else
 	    			response << create_ticket(ticket_number(ai))
 	    		end
