@@ -211,6 +211,48 @@ module SabreWsSupport
 	    	return response
 	    end
 
+	    #devuelve el ticket completo o nil si no es conjuncion
+	    def create_conjunction_ticket(ticketing_element)
+	    	text = ticketing_element[:@e_ticket_number]
+	    	unless text.nil?
+	    		temp = text.split("-")
+	    		temp_number = temp[0]
+	    		temp_number = temp_number.gsub("TE", "")
+	    		temp_number.strip
+	    		if temp_number.include?("/") then
+	    			temp = temp_number.split("/")
+	    			number = temp[0].last(10)
+	    			number_conj = temp[1] 
+	    			number = number[0..7] + number_conj
+	    			return {number: number, void: false, pax_name: "Conjunción", base_fare: "", airline: ""}
+	    		end
+	    	end
+	    	return nil
+	    end
+
+	    def get_conjunction_ticket(accounting_element)
+	    	response = nil
+	    	origin_number = ticket_number(accounting_element)
+	    	tk = self.ticketing
+	    	unless tk.nil?
+	    		temp_conj = nil 
+	    		if tk.is_a?(Array) then 
+	    			temp_conj = tk.select { |t| t[:@e_ticket_number].include?(origin_number) unless t[:@e_ticket_number].nil? }
+	    			temp_conj = temp_conj.first unless temp_conj.empty?
+	    		else
+	    			
+	    			if tk[:@e_ticket_number].include?(origin_number)
+	    				temp_conj = tk
+	    			end unless tk[:@e_ticket_number].nil?
+	    		end
+	    		unless temp_conj.nil?
+	    			number = create_conjunction_ticket(temp_conj)
+	    			response = number unless number.nil?
+	    		end
+	    	end
+	    	return response
+	    end
+
 	    #devuelve el umero de ticket del elemento de accounting_info
 	    def ticket_number(accounting_element)
 	    	accounting_element[:document_info][:document][:@number]
@@ -245,9 +287,16 @@ module SabreWsSupport
 	    	ai = self.accounting
 	    	unless ai.nil?
 	    		if ai.is_a?(Array) then 
-	    			response = ai.collect { |a| create_ticket(a)}
+	    			ai.each { 
+	    				|a|
+	    				response << create_ticket(a)
+	    				tconj = get_conjunction_ticket(a)
+	    				response << tconj unless tconj.nil?
+	    			}
 	    		else
 	    			response << create_ticket(ticket_number(ai))
+	    			tconj = get_conjunction_ticket(ai)
+	    			response << tconj unless tconj.nil?
 	    		end
 	    	end
 	    	return response
