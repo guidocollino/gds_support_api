@@ -264,16 +264,27 @@ module AmadeusWsSupport
   		self.tickets = get_tickets
   	end
 
-  	def get_conjunction_ticket(element)
-  		response = nil
+  	def calculate_cant_conjuntion(ticket_number,conjunction_number)
+  		cant_dig_tc = conjunction_number.size
+  		init_t = 10 - cant_dig_tc
+  		end_t = 9
+  		temp_number = ticket_number[init_t..end_t]
+  		return conjunction_number.to_i - temp_number.to_i
+  	end
+
+  	def get_conjunction_tickets(element)
+  		response = []
   		number_parts = element["otherDataFreetext"]["longFreetext"]
   		temp = number_parts.split("/")
   		temp2 = temp[0].split("-")
   		number = temp2[1]
-  		if temp2.size == 3 then
+  		if temp2.size >= 3 then
   			number_conj = temp2[2]
-  			number = number[0..7] + number_conj
-  			response = {number: number, void: false, pax_name: "conjunción", base_fare: "", airline: ""}
+  			cant_conj = calculate_cant_conjuntion(number, number_conj)
+  		  for i in (1..cant_conj) do 
+  		  	conj_number = (number.to_i + i).to_s
+  		  	response << {number: conj_number, void: false, pax_name: "conjunción", base_fare: "", airline: ""}
+  		  end
   		end
   		return response
   	end
@@ -343,13 +354,13 @@ module AmadeusWsSupport
       			te.each {
       				|a| 
       				response << create_ticket(a)
-      				tconj = get_conjunction_ticket(a)
-      				response << tconj unless tconj.nil?
+      				tconj = get_conjunction_tickets(a)
+      				response += tconj unless tconj.nil?
       			}
       		else
       			response << create_ticket(te)
-      			tconj = get_conjunction_ticket(te)
-      			response << tconj unless tconj.nil?
+      			tconj = get_conjunction_tickets(te)
+      			response += tconj unless tconj.nil?
       		end
       	end
       	return response
