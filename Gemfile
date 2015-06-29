@@ -23,8 +23,3 @@ gem "unicorn-rails"
 
 # To use debugger
 # gem 'ruby-debug19', :require => 'ruby-debug'
-
-#Log en mongo
-gem "mongodb_logger"
-gem "mongo"
-gem "bson_ext" # for MRI
