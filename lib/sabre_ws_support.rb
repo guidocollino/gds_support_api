@@ -23,16 +23,16 @@ module SabreWsSupport
 	end
 
 	def self.end_with_itinerary
-		body = { 'ns:EndTransaction' =>	
-			{ 'ns:Email' => 
-				{ 'ns:Itinerary' => 
-					{ 'ns:PDF' =>  "" , :attributes! => { 'ns:PDF' => { "Ind" => "true" } } } , 
-					:attributes! => { 'ns:Itinerary' => { "Ind" => "true" } } }, 
-					:attributes! => { 'ns:Email' => { "Ind" => "true" } } }, 'ns:Source' => "", 
-					:attributes! => { 
-						'ns:EndTransaction' => { "Ind" => "true" }, 
-						'ns:Source' => { "ReceivedFrom" => "Aero" } } 
-					} 
+		body = { 'ns:EndTransaction' =>
+			{ 'ns:Email' =>
+				{ 'ns:Itinerary' =>
+					{ 'ns:PDF' =>  "" , :attributes! => { 'ns:PDF' => { "Ind" => "true" } } } ,
+					:attributes! => { 'ns:Itinerary' => { "Ind" => "true" } } },
+					:attributes! => { 'ns:Email' => { "Ind" => "true" } } }, 'ns:Source' => "",
+					:attributes! => {
+						'ns:EndTransaction' => { "Ind" => "true" },
+						'ns:Source' => { "ReceivedFrom" => "Aero" } }
+					}
 
 					response = SabreWebServices.call("EndTransactionRQ", body)
 
@@ -63,12 +63,12 @@ module SabreWsSupport
 	###############GET PNR DATA########################
 
 	def self.get_pnr_info(pnr_code)
-		body = { 'ns:MessagingDetails' => { 
+		body = { 'ns:MessagingDetails' => {
 			'ns:Transaction' => "",
-			:attributes! => { 'ns:Transaction' => { "Code" => "PNR" } } 
+			:attributes! => { 'ns:Transaction' => { "Code" => "PNR" } }
 			},
 			'ns:UniqueID' => "",
-			:attributes! => { 
+			:attributes! => {
 				'ns:UniqueID' => { "ID" => pnr_code }
 			}
 		}
@@ -127,10 +127,10 @@ module SabreWsSupport
 		end
 
 		def calculate
-			if self.pqs.is_a?(Array) then 
+			if self.pqs.is_a?(Array) then
 	    		#PARA EL CALCULO MANUAL , VER SI SIRVE EN EL CASO DE QUE HAYA INACTIVOS
-		  #   	self.pqs.each { 
-			 #    	|pq|  
+		  #   	self.pqs.each {
+			 #    	|pq|
 	   #  			ai = pq[:priced_itinerary][:air_itinerary_pricing_info]
 		  #   		tf = ai[:itin_total_fare]
 
@@ -142,7 +142,7 @@ module SabreWsSupport
 				last_pq = self.pqs.last
 			else
 				last_pq = self.pqs
-			end 
+			end
 
 			itf = last_pq[:priced_itinerary][:air_itinerary_pricing_info][:itin_total_fare]
 			totals = itf[:totals]
@@ -173,7 +173,7 @@ module SabreWsSupport
 	class TicketsWrapper
 		attr_accessor :tickets, :accounting, :tickets_void, :ticketing
 
-		def initialize(data) 
+		def initialize(data)
 			self.accounting = data[:accounting_info]
 			self.ticketing = data[:itinerary_info][:ticketing]
 			self.tickets_void = get_tickets_void
@@ -197,9 +197,9 @@ module SabreWsSupport
 	    	response = []
 	    	tk = self.ticketing
 	    	unless tk.nil?
-	    		if tk.is_a?(Array) then 
-	    			tk.each { 
-	    				|t| 
+	    		if tk.is_a?(Array) then
+	    			tk.each {
+	    				|t|
 	    				number = ticket_void_number(t)
 	    				response << number unless number.nil?
 	    			}
@@ -231,9 +231,9 @@ module SabreWsSupport
 	    		if temp_number.include?("/") then
 	    			temp = temp_number.split("/")
 	    			number = temp[0].last(10)
-	    			number_conj = temp[1] 
+	    			number_conj = temp[1]
 	    			cant_conj = calculate_cant_conjuntion(number, number_conj)
-		  		  for i in (1..cant_conj) do 
+		  		  for i in (1..cant_conj) do
 		  		  	conj_number = (number.to_i + i).to_s
 		  		  	response << {number: conj_number, void: false, pax_name: "conjunción", base_fare: "", airline: ""}
 		  		  end
@@ -247,12 +247,12 @@ module SabreWsSupport
 	    	origin_number = ticket_number(accounting_element)
 	    	tk = self.ticketing
 	    	unless tk.nil?
-	    		temp_conj = nil 
-	    		if tk.is_a?(Array) then 
+	    		temp_conj = nil
+	    		if tk.is_a?(Array) then
 	    			temp_conj = tk.select { |t| t[:@e_ticket_number].include?(origin_number) unless t[:@e_ticket_number].nil? }
 	    			temp_conj = temp_conj.first unless temp_conj.empty?
 	    		else
-	    			
+
 	    			if tk[:@e_ticket_number].include?(origin_number)
 	    				temp_conj = tk
 	    			end unless tk[:@e_ticket_number].nil?
@@ -274,40 +274,118 @@ module SabreWsSupport
 	    	accounting_element[:person_name]
 	    end
 
+			#devuelve los impuestos del ticket
+	    def ticket_tax(accounting_element)
+	    	accounting_element[:taxes][:tax][:@amount]
+	    end
+
 	    #devuelve la tarifa base del ticket
 	    def ticket_base_fare(accounting_element)
 	    	accounting_element[:base_fare][:@amount]
 	    end
 
-	     #devuelve el umero de ticket del elemento de accounting_info
+	     #devuelve la chapa de la aerolinea
 	     def ticket_airline(accounting_element)
 	     	accounting_element[:airline][:@code]
 	     end
+
+			 #devuelve el monto cash o 0 si con Tc
+			 def cash_amount(accounting_element)
+				 payment_form = accounting_element[:payment_info][:payment][:form]
+				 if payment_form == "CA" then
+				   return (ticket_base_fare(accounting_element).to_f + ticket_tax(accounting_element).to_f).round(2)
+				 else
+           return 0
+				 end
+			 end
+
+			 #devuelve el monto con tarjeta o 0 si es cash
+			 def tc_amount(accounting_element)
+				 payment_form = accounting_element[:payment_info][:payment][:form]
+				 if payment_form == "CC" then
+				   return (ticket_base_fare(accounting_element).to_f + ticket_tax(accounting_element).to_f).round(2)
+				 else
+           return 0
+				 end
+			 end
+
+			 #devuelve el monto con tarjeta o 0 si es cash
+			 def tc_number(accounting_element)
+				 payment_form = accounting_element[:payment_info][:payment][:form]
+				 if payment_form == "CC" then
+				   return accounting_element[:payment_info][:payment][:cc_info][:payment_card][:@number]
+				 else
+           return ""
+				 end
+			 end
+
+			 #Forma de pago
+			 def payment_form(cash_amount, tc_amount, original = nil)
+				 fp = "CASH" if cash_amount.to_i > 0
+				 fp = "TC" if tc_amount.to_i > 0
+				 result = original.nil? ?  fp :  "#{fp} + #{original}"
+				 return result
+			 end
+
+			 def exits_ticket?(tickets,new_ticket)
+				 tr = tickets.select { |t| t[:number] == new_ticket[:number] }
+				 !tr.empty?
+			 end
 
 	     def create_ticket(accounting_element)
 	     	number = ticket_number(accounting_element)
 	     	void = self.tickets_void.include?(number)
 	     	pax_name = ticket_pax_name(accounting_element)
 	     	base_fare = ticket_base_fare(accounting_element)
+				tax = ticket_tax(accounting_element)
 	     	airline = ticket_airline(accounting_element)
-	     	{number: number, void: void, pax_name: pax_name, base_fare: base_fare, airline: airline}
+				cash_amount = cash_amount(accounting_element)
+				tc_amount = tc_amount(accounting_element)
+				tc_number = tc_number(accounting_element)
+				payment_form = payment_form(cash_amount, tc_amount)
+	     	{number: number, void: void, pax_name: pax_name, base_fare: base_fare, taxes: tax,
+					airline: airline, cash_amount: cash_amount, tc_amount: tc_amount, tc: tc_number, payment_form: payment_form}
 	     end
+
+			 def add_amount(tickets, new_ticket, accounting_element)
+				 tr = tickets.select { |t| t[:number] == new_ticket[:number] }
+				 old_ticket = tr.first
+				 base_fare = ticket_base_fare(accounting_element)
+				 tax = ticket_tax(accounting_element)
+				 cash_amount = cash_amount(accounting_element)
+				 tc_amount = tc_amount(accounting_element)
+ 				 tc_number = tc_number(accounting_element)
+				 payment_form = payment_form(cash_amount, tc_amount, old_ticket[:payment_form])
+				 old_ticket[:base_fare] = (old_ticket[:base_fare].to_f + base_fare.to_f).round(2)
+				 old_ticket[:taxes] = (old_ticket[:taxes].to_f + tax.to_f).round(2)
+				 old_ticket[:cash_amount] = (old_ticket[:cash_amount] + cash_amount).round(2)
+				 old_ticket[:tc_amount] = (old_ticket[:tc_amount] + tc_amount).round(2)
+				 old_ticket[:tc] = tc_number unless tc_number.blank?
+				 old_ticket[:payment_form] = payment_form
+			 end
+
+			 def process_accounting_element(response, accounting_info)
+				 t = create_ticket(accounting_info)
+				 unless exits_ticket?(response,t)
+					 response << t
+					 tconj = get_conjunction_tickets(accounting_info)
+					 response += tconj unless tconj.nil?
+				 else
+					 add_amount(response, t, accounting_info)
+				 end
+			 end
 
 	     def get_tickets
 	     	response = []
 	     	ai = self.accounting
 	     	unless ai.nil?
-	     		if ai.is_a?(Array) then 
-	     			ai.each { 
+	     		if ai.is_a?(Array) then
+	     			ai.each {
 	     				|a|
-	     				response << create_ticket(a)
-	     				tconj = get_conjunction_tickets(a)
-	     				response += tconj unless tconj.nil?
+							process_accounting_element(response, a)
 	     			}
 	     		else
-	     			response << create_ticket(ai)
-	     			tconj = get_conjunction_tickets(ai)
-	     			response += tconj unless tconj.nil?
+						process_accounting_element(response, ai)
 	     		end
 	     	end
 	     	return response
@@ -320,7 +398,7 @@ module SabreWsSupport
 	class PnrInfoWrapper
 		attr_accessor :data, :pnr_code
 
-		def initialize(pnr_code, pnr_json) 
+		def initialize(pnr_code, pnr_json)
 			self.pnr_code = pnr_code
 			self.data = pnr_json
 		end
@@ -341,7 +419,7 @@ module SabreWsSupport
 			price_quotes = nil
 			unless data[:itinerary_info][:itinerary_pricing].nil?
 				price_quotes = data[:itinerary_info][:itinerary_pricing][:price_quote]
-				if price_quotes.is_a?(Array) then 
+				if price_quotes.is_a?(Array) then
 					price_quotes = price_quotes.select { |pq| !pq_inactive?(pq)}
 				else
 					price_quotes = price_quotes unless pq_inactive?(price_quotes)
@@ -351,7 +429,7 @@ module SabreWsSupport
 		end
 
 		def cant_pax
-			if passengers_data.is_a?(Array) then 
+			if passengers_data.is_a?(Array) then
 				return passengers_data.size
 			else
 				return 1
@@ -421,7 +499,7 @@ module SabreWsSupport
 
 	    #El texto de los datos de cada pax
 	    def text_pax(p)
-	    	return "#{p[:@name_number]} #{p[:surname]}/#{p[:given_name]} (#{p[:@passenger_type]}) #{p[:@name_reference]}" 
+	    	return "#{p[:@name_number]} #{p[:surname]}/#{p[:given_name]} (#{p[:@passenger_type]}) #{p[:@name_reference]}"
 	    end
 
 	    #El texto da la linea de totales de la tarifa dentro del pq
@@ -433,7 +511,7 @@ module SabreWsSupport
 	    	"#{tf[:equiv_fare][:@currency_code]}#{tf[:equiv_fare][:@amount]} "\
 	    	"#{tf[:taxes][:tax][:@amount]}#{tf[:taxes][:tax][:@tax_code]} "\
 	    	"#{tf[:total_fare][:@currency_code]}#{tf[:total_fare][:@amount]}"\
-	    	"#{ai[:passenger_type_quantity][:@code]} " 
+	    	"#{ai[:passenger_type_quantity][:@code]} "
 	    end
 
 	    #El texto del desglose de impuestos del pq
@@ -455,15 +533,15 @@ module SabreWsSupport
 	  class PnrHtmlPrinter < PnrPrinter
 
 	  	def print_passengers
-	  		if pnr_info.passengers_data.is_a?(Array) then 
-	  			text_passengers = pnr_info.passengers_data.collect { 
-	  				|p|  
-	  				"<p>#{text_pax(p)}</p>" 
+	  		if pnr_info.passengers_data.is_a?(Array) then
+	  			text_passengers = pnr_info.passengers_data.collect {
+	  				|p|
+	  				"<p>#{text_pax(p)}</p>"
 	  			}
 	  			return text_passengers.join("")
 	  		else
 	  			p = pnr_info.passengers_data
-	  			return "<p>#{text_pax(p)}</p>" 
+	  			return "<p>#{text_pax(p)}</p>"
 	  		end
 	  	end
 
@@ -471,20 +549,20 @@ module SabreWsSupport
 	  		unless pnr_info.routes_data.nil?
 	  			arnks = []
 	  			text_routes = []
-	  			if pnr_info.routes_data.is_a?(Array) then 
-	  				pnr_info.routes_data.each { 
-	  					|p|  
+	  			if pnr_info.routes_data.is_a?(Array) then
+	  				pnr_info.routes_data.each {
+	  					|p|
 	  					if p[:arunk].nil?
 	  						if (p[:seats].nil? )
 	  							if p[:flight_segment].is_a?(Array)
-	  								route = "<p>#{text_route_scale(p)}</p>" 
+	  								route = "<p>#{text_route_scale(p)}</p>"
 	  								route += "<p>#{p[:flight_segment][0][:text]}</p>" unless (p[:flight_segment][0][:text].nil? )
 	  								text_routes.push(route)
 	  							else
-	  								route = "<p>#{text_route(p)}</p>" 
+	  								route = "<p>#{text_route(p)}</p>"
 	  								route += "<p>#{p[:flight_segment][:text]}</p>" unless (p[:flight_segment][:text].nil? )
 	  								text_routes.push(route)
-	  							end 
+	  							end
 	  						end unless p[:flight_segment].nil?
 
 	  					else
@@ -500,7 +578,7 @@ module SabreWsSupport
 			    	return text_routes.join("")
 			    else
 			    	p = pnr_info.routes_data
-			    	return "<p>#{text_route(p)}</p>" 
+			    	return "<p>#{text_route(p)}</p>"
 			    end
 			  else
 			  	return ""
@@ -526,9 +604,9 @@ module SabreWsSupport
 	    		"<td>TOTAL</td>"\
 	    		"</tr>"
 
-	    		if price_quotes.is_a?(Array) then 
-	    			text_pqs = price_quotes.each { 
-	    				|pq|  
+	    		if price_quotes.is_a?(Array) then
+	    			text_pqs = price_quotes.each {
+	    				|pq|
 	    				table += tr_pq_fare(pq)
 	    				table += tr_pq_taxes(pq)
 	    			}
@@ -580,7 +658,7 @@ module SabreWsSupport
 			unless totals.blank?
 				response += "<td></td>"
 				response += "<td>#{totals.text_base_fare}</td>"
-				response += "<td>#{totals.text_equiv_fare}</td>" 
+				response += "<td>#{totals.text_equiv_fare}</td>"
 				response += "<td>#{totals.text_taxes}</td>"
 				response += "<td>#{totals.text_total}TTL</td>"
 			end
@@ -598,9 +676,9 @@ module SabreWsSupport
 	    	response = ""
 	    	price_quotes = pnr_info.pq_data
 	    	unless price_quotes.blank?
-	    		if price_quotes.is_a?(Array) then 
-	    			text_pqs = price_quotes.each { 
-	    				|pq|  
+	    		if price_quotes.is_a?(Array) then
+	    			text_pqs = price_quotes.each {
+	    				|pq|
 	    				response += extra_info(pq)
 	    			}
 	    		else
@@ -612,11 +690,11 @@ module SabreWsSupport
 	    end
 
 	    def print_description
-	    	return  "<p>#{pnr_info.pnr_code}</p>" + 
-	    	print_passengers + '</br>' + 
+	    	return  "<p>#{pnr_info.pnr_code}</p>" +
+	    	print_passengers + '</br>' +
 	    	print_routes + '</br>' +
-	    	print_itinerary_ref + '</br>' + 
-	    	print_pq_data + 
+	    	print_itinerary_ref + '</br>' +
+	    	print_pq_data +
 	    	"<HR WIDTH='90%''>"
 
 	    end
@@ -633,7 +711,7 @@ module SabreWsSupport
  			response += "<td>#{ai[:passenger_type_quantity][:@quantity].to_i}- </td>"
  			response += "<td>#{tf[:base_fare][:@currency_code]}#{tf[:base_fare][:@amount]}</td>"
  			equiv = tf[:equiv_fare].nil? ? "" : "#{tf[:equiv_fare][:@currency_code]}#{tf[:equiv_fare][:@amount]}"
- 			response += "<td>#{equiv}</td>" 
+ 			response += "<td>#{equiv}</td>"
  			response += "<td>#{tf[:taxes][:tax][:@amount]}#{tf[:taxes][:tax][:@tax_code]}</td>"
  			response += "<td>#{tf[:total_fare][:@currency_code]}#{tf[:total_fare][:@amount]}"
  			response += "#{ai[:passenger_type_quantity][:@code]}</td>"
@@ -667,9 +745,9 @@ module SabreWsSupport
 	    		response += "<td></td>"
 	    		response += "<td>#{totals[:base_fare][:@amount]}</td>"
 	    		if totals[:equiv_fare].blank?
-	    			response += "<td></td>" 
+	    			response += "<td></td>"
 	    		else
-	    			response += "<td>#{totals[:equiv_fare][:@amount]}</td>" 
+	    			response += "<td>#{totals[:equiv_fare][:@amount]}</td>"
 	    		end
 	    		response += "<td>#{totals[:taxes][:tax][:@amount]}</td>"
 	    		response += "<td>#{totals[:total_fare][:@amount]}TTL</td>"
@@ -697,9 +775,9 @@ module SabreWsSupport
 	    	response = ""
 	    	unless ptc.nil?
 	    		restrictions = ptc[:res_ticketing_restrictions]
-	    		if restrictions.is_a?(Array) then 
-	    			restrictions.each { 
-	    				|res|  
+	    		if restrictions.is_a?(Array) then
+	    			restrictions.each {
+	    				|res|
 	    				response += "<p>#{res}</p>"
 	    			}
 	    		else

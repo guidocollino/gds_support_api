@@ -68,12 +68,12 @@ module AmadeusWsSupport
 
   	def calculate
   		fares_objects = []
-  		if self.fares.is_a?(Array) then 
+  		if self.fares.is_a?(Array) then
   			self.fares.each { |f| fares_objects.push(FareData.new(f,self.pnr_info)) }
   		else
   			fares_objects.push(FareData.new(self.fares,self.pnr_info))
-  		end 
-  		fares_objects.each {  
+  		end
+  		fares_objects.each {
   			|fare_object|
   			cant_pax = fare_object.cant_pax_associated
   			self.base_fare += (fare_object.fare_base["amount"].to_f)*cant_pax unless fare_object.fare_base.nil?
@@ -182,8 +182,8 @@ module AmadeusWsSupport
       		div_taxes.each {
       			|ts|
       			table += "<tr>"
-      			ts.each { 
-      				|t|  
+      			ts.each {
+      				|t|
       				table += "<td>#{t['taxCurrency']} #{t['taxAmount']}#{t['taxCountryCode']} #{t['taxNatureCode']}</td>"
       			}
       			table += "</tr>"
@@ -223,14 +223,14 @@ module AmadeusWsSupport
       			numbers.each { |n|
       				pax = pnr_info.search_passenger(n)
       				unless pax.nil?
-      					if pax['passengerData'].is_a?(Array) then 
+      					if pax['passengerData'].is_a?(Array) then
       						unless inf_fare?
-      							paxs.push(pax['passengerData'][0]) 
+      							paxs.push(pax['passengerData'][0])
       						else
                     paxs.push(pax['passengerData'][1]) #En caso que se tarifa infante
                   end
                 else
-                	paxs.push(pax['passengerData']) 
+                	paxs.push(pax['passengerData'])
                 end
               end
             }
@@ -242,12 +242,12 @@ module AmadeusWsSupport
       def inf_fare?
       	text = fare_element["tstFreetext"]
       	if text.is_a?(Array) then
-      		text.each { 
-      			|t| 
-      			return true if !t["longFreetext"].nil? && t["longFreetext"].include?("INF")  
+      		text.each {
+      			|t|
+      			return true if !t["longFreetext"].nil? && t["longFreetext"].include?("INF")
       		}
       	else
-      		return true if !text["longFreetext"].nil? && text["longFreetext"].include?("INF")  
+      		return true if !text["longFreetext"].nil? && text["longFreetext"].include?("INF")
       	end
       	return false
       end
@@ -258,7 +258,7 @@ module AmadeusWsSupport
   class TicketsWrapper
   	attr_accessor :tickets, :data, :pnr_info
 
-  	def initialize(pnr_data, pnr_info) 
+  	def initialize(pnr_data, pnr_info)
   		self.pnr_info = pnr_info
   		self.data = pnr_data
   		self.tickets = get_tickets
@@ -281,12 +281,47 @@ module AmadeusWsSupport
   		if temp2.size >= 3 then
   			number_conj = temp2[2]
   			cant_conj = calculate_cant_conjuntion(number, number_conj)
-  		  for i in (1..cant_conj) do 
+  		  for i in (1..cant_conj) do
   		  	conj_number = (number.to_i + i).to_s
   		  	response << {number: conj_number, void: false, pax_name: "conjunción", base_fare: "", airline: ""}
   		  end
   		end
   		return response
+  	end
+
+    def get_pax_reference(ticket_element)
+      refrence_number = nil
+      unless ticket_element["referenceForDataElement"].nil?
+        references = ticket_element["referenceForDataElement"]["reference"]
+        if references.is_a?(Array) then
+          reference_tmp = references.select { |e| e['qualifier'] == "PT" }
+          refrence_number = reference_tmp[0]["number"]
+        else
+          refrence_number = references["number"] if references['qualifier'] == "PT"
+        end
+      end
+      return refrence_number
+    end
+
+    def get_accounting_for_ticket(element, accounting_payment_elements)
+      return accounting_payment_elements[0] if accounting_payment_elements.size == 1
+      pax_reference = get_pax_reference(element)
+      ap = nil
+      unless pax_reference.nil?
+        accounting_payment_elements.each do |ape|
+          unless ape["referenceForDataElement"].nil?
+            q = ape["referenceForDataElement"]["reference"]["qualifier"]
+            n = ape["referenceForDataElement"]["reference"]["number"]
+            ap = ape if (q == "PT" && n == pax_reference)
+          end
+        end
+      end
+      return ap
+    end
+
+    def accounting_payment_elements
+  		elements = self.data["soapCOLONBody"]["PNR_Reply"]["dataElementsMaster"]["dataElementsIndiv"]
+  		return elements.select { |e| e['elementManagementData']['segmentName'] == "FP" }
   	end
 
   	def ticket_elements
@@ -335,32 +370,52 @@ module AmadeusWsSupport
        	return response
        end
 
-       def create_ticket(element)
+       def tc_number(element, accounting_element)
+         return "" if accounting_element.nil?
+       end
+
+       def payment_form(element, accounting_element)
+         return "" if accounting_element.nil?
+         p accounting_element
+         return accounting_element["otherDataFreetext"]["longFreetext"]
+       end
+
+       def create_ticket(element, accounting_payment_elements)
+        accounting_element = get_accounting_for_ticket(element, accounting_payment_elements)
+
        	number = ticket_number(element["otherDataFreetext"]["longFreetext"])
        	void = false
        	pax_name = ticket_pax_name(element)
        	base_fare = ticket_base_fare(element["otherDataFreetext"]["longFreetext"])
+        tax = 0
        	airline = ticket_airline(element["otherDataFreetext"]["longFreetext"])
-       	{number: number, void: void, pax_name: pax_name, base_fare: base_fare, airline: airline}
-        #{number: number, void: false}
-        # {number: number, void: false, pax_name: "", base_fare: "", airline: ""}
+        cash_amount = 0
+				tc_amount = 0
+				tc_number = tc_number(element, accounting_element)
+				payment_form = payment_form(element, accounting_element)
+       	{number: number, void: void, pax_name: pax_name, base_fare: base_fare, airline: airline, taxes: tax,
+          cash_amount: cash_amount, tc_amount: tc_amount, tc: tc_number, payment_form: payment_form}
+      end
+
+      def process_accounting_element(response, accounting_info, accounting_payment_elements)
+        t = create_ticket(accounting_info, accounting_payment_elements)
+        response << t
+        tconj = get_conjunction_tickets(accounting_info)
+        response += tconj unless tconj.nil?
       end
 
       def get_tickets
       	response = []
+        ape = accounting_payment_elements
       	te = ticket_elements
       	unless te.nil?
-      		if te.is_a?(Array) then 
+      		if te.is_a?(Array) then
       			te.each {
-      				|a| 
-      				response << create_ticket(a)
-      				tconj = get_conjunction_tickets(a)
-      				response += tconj unless tconj.nil?
+      				|a|
+              process_accounting_element(response, a, ape)
       			}
       		else
-      			response << create_ticket(te)
-      			tconj = get_conjunction_tickets(te)
-      			response += tconj unless tconj.nil?
+            process_accounting_element(response, te, ape)
       		end
       	end
       	return response
@@ -372,7 +427,7 @@ module AmadeusWsSupport
   class PnrInfoWrapper
   	attr_accessor :data, :pnr_code
 
-  	def initialize(pnr_code, pnr_json) 
+  	def initialize(pnr_code, pnr_json)
   		self.pnr_code = pnr_code
   		self.data = pnr_json
   	end
@@ -405,15 +460,15 @@ module AmadeusWsSupport
 
   	def cant_pax
   		cant = 0
-  		if passengers_data.is_a?(Array) then 
-  			passengers_data.each { 
-  				|p| 
-  				if p['passengerData'].is_a?(Array) then 
+  		if passengers_data.is_a?(Array) then
+  			passengers_data.each {
+  				|p|
+  				if p['passengerData'].is_a?(Array) then
   					cant += p['passengerData'].size
   				else
-  					cant += 1 
-  				end 
-  			} 
+  					cant += 1
+  				end
+  			}
   		else
   			cant = 1
   		end
@@ -421,16 +476,16 @@ module AmadeusWsSupport
   	end
 
   	def search_passenger(number)
-  		if passengers_data.is_a?(Array) then    
-  			paxs = passengers_data.select { |e| 
-  				e['elementManagementPassenger']['reference']['qualifier'] == "PT" && e['elementManagementPassenger']['reference']['number'] == "#{number}" 
+  		if passengers_data.is_a?(Array) then
+  			paxs = passengers_data.select { |e|
+  				e['elementManagementPassenger']['reference']['qualifier'] == "PT" && e['elementManagementPassenger']['reference']['number'] == "#{number}"
   			}
   			return paxs[0] unless paxs.empty?
   		else
   			pf = passengers_data['elementManagementPassenger']['reference']
   			return passengers_data if pf['qualifier'] == "PT" && pf['number'] == "#{number}"
   		end
-  		return nil 
+  		return nil
   	end
 
   	def tickets
@@ -477,22 +532,22 @@ module AmadeusWsSupport
 
       #El texto de los datos de cada pax
       def unique_pax(pax_data)
-      	if pax_data['travellerInformation']['passenger'].is_a?(Array) then 
+      	if pax_data['travellerInformation']['passenger'].is_a?(Array) then
           type_pax = "ADLWINF" #Adulto con infante
           surname = "#{pax_data['travellerInformation']['traveller']['surname']}"
-          name = "#{pax_data['travellerInformation']['passenger'][0]['firstName']}" 
-          inf_name = "#{pax_data['travellerInformation']['passenger'][1]['firstName']}" 
+          name = "#{pax_data['travellerInformation']['passenger'][0]['firstName']}"
+          inf_name = "#{pax_data['travellerInformation']['passenger'][1]['firstName']}"
         else
         	type_pax = pax_data['travellerInformation']['passenger']['type']
         	surname = "#{pax_data['travellerInformation']['traveller']['surname']}"
-        	name = "#{pax_data['travellerInformation']['passenger']['firstName']}" 
+        	name = "#{pax_data['travellerInformation']['passenger']['firstName']}"
         end
 
         if type_pax == "INF"
         	response = "(INF#{surname}/#{name})"
         elsif type_pax == "ADLWINF"
         	response = "#{surname}/#{name}(INF/#{inf_name})"
-        elsif type_pax.nil? 
+        elsif type_pax.nil?
         	response = "#{surname}/#{name}"
         else
         	response = "#{surname}/#{name}(#{type_pax})"
@@ -501,13 +556,13 @@ module AmadeusWsSupport
       end
 
       def text_pax(p)
-      	response = "#{p['elementManagementPassenger']['lineNumber']}." 
-      	if p['passengerData'].is_a?(Array) then 
+      	response = "#{p['elementManagementPassenger']['lineNumber']}."
+      	if p['passengerData'].is_a?(Array) then
       		p['passengerData'].select { |pax|
-      			response += "#{unique_pax(pax)} " 
+      			response += "#{unique_pax(pax)} "
       		}
       	else
-      		response += "#{unique_pax(p['passengerData'])} " 
+      		response += "#{unique_pax(p['passengerData'])} "
       	end
       	return response
       end
@@ -516,10 +571,10 @@ module AmadeusWsSupport
       def text_fare(f, pnr_info)
       	fare_print = FareData.new(f, pnr_info)
       	response = "<p>#{fare_print.fare_paxs}</p>"
-      	response += "<p>#{fare_print.fare_base_text}</p>" 
-      	response += "<p>#{fare_print.fare_equiv_text}</p>" 
-      	response += "<p>#{fare_print.taxes_tables}</p>" 
-      	response += "<p>#{fare_print.fare_total_text}</p>" 
+      	response += "<p>#{fare_print.fare_base_text}</p>"
+      	response += "<p>#{fare_print.fare_equiv_text}</p>"
+      	response += "<p>#{fare_print.taxes_tables}</p>"
+      	response += "<p>#{fare_print.fare_total_text}</p>"
       	return response
       end
 
@@ -529,19 +584,19 @@ module AmadeusWsSupport
 
     	def print_passengers
     		response = ""
-    		if pnr_info.passengers_data.is_a?(Array) then 
+    		if pnr_info.passengers_data.is_a?(Array) then
     			pnr_info.passengers_data.select { |p| response += "#{text_pax(p)} " }
     			return "<p>#{response}</p>"
     		else
-    			return "<p>#{text_pax(pnr_info.passengers_data)}</p>" 
+    			return "<p>#{text_pax(pnr_info.passengers_data)}</p>"
     		end
     	end
 
     	def print_routes
     		unless pnr_info.routes_data.nil?
     			if pnr_info.routes_data.is_a?(Array) then
-    				text_routes = pnr_info.routes_data.collect { 
-    					|r| 
+    				text_routes = pnr_info.routes_data.collect {
+    					|r|
     					"<p>#{text_route(r)}</p>"\
     				}
     				return text_routes.join("")
@@ -559,10 +614,10 @@ module AmadeusWsSupport
 
     	def print_fares
     		response = ""
-    		unless pnr_info.fares_data.nil? 
+    		unless pnr_info.fares_data.nil?
     			if pnr_info.fares_data.is_a?(Array) then
-    				text_fares = pnr_info.fares_data.collect { 
-    					|f| 
+    				text_fares = pnr_info.fares_data.collect {
+    					|f|
     					"<p>#{text_fare(f, pnr_info)}</p>"\
     				}
     				response += text_fares.join("")
